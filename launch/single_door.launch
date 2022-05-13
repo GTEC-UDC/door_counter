@@ -1,0 +1,28 @@
+<launch>
+
+    <arg default="/gtec/mmwave/target" name="target_positions_topic"></arg>
+
+    <arg default="2.0" name="grid_width"></arg>
+    <arg default="3.0" name="grid_height"></arg>
+    <arg default="1.25" name="grid_low_zone_height"></arg>
+    <arg default="1.25" name="grid_high_zone_height"></arg>
+    <arg default="-0.5" name="grid_zero_x"></arg>
+    <arg default="1" name="grid_zero_y"></arg>
+    <arg default="0" name="grid_rotation"></arg>
+
+
+
+    <node name="DoorNode" output="screen" pkg="gtec_door_counter" type="door_node.py">
+        <param name="target_positions_topic" value="$(arg target_positions_topic)"></param>
+        <param name="grid_width" value="$(arg grid_width)"></param>
+        <param name="grid_height" value="$(arg grid_height)"></param>
+        <param name="grid_low_zone_height" value="$(arg grid_low_zone_height)"></param>
+        <param name="grid_high_zone_height" value="$(arg grid_high_zone_height)"></param>
+    </node>
+
+        <node pkg="tf" 
+        type="static_transform_publisher" 
+        name="map_to_grid" 
+        args="$(arg grid_zero_x) $(arg grid_zero_y) 0 $(arg grid_rotation) 0 0 map grid 30" />
+
+</launch>
