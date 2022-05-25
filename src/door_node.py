@@ -10,7 +10,7 @@ import tf2_geometry_msgs
 from std_msgs.msg import ColorRGBA, Float32
 from jsk_rviz_plugins.msg import OverlayText
 
-from door_grid import DoorGridHandler, DoorGridSize, DoorHandlerOptions, TargetPoint, DoorGrid
+from grid_occupancy import DoorGridHandler, DoorGridSize, DoorHandlerOptions, TargetPoint, DoorGrid, GridSize
 
 if __name__ == "__main__":
 
@@ -22,7 +22,7 @@ if __name__ == "__main__":
     grid_low_zone_height = float(rospy.get_param('~grid_low_zone_height'))
     grid_high_zone_height = float(rospy.get_param('~grid_high_zone_height'))
 
-    grid_size = DoorGridSize(width_meters=grid_width, height_meters=grid_height, low_zone_height=grid_low_zone_height, high_zone_height=grid_high_zone_height)
+    grid_size = DoorGridSize(grid_size=GridSize(width_meters=grid_width, height_meters=grid_height), low_zone_height=grid_low_zone_height, high_zone_height=grid_high_zone_height)
     reduce_fun = lambda time_elapsed: time_elapsed * 10
     expansion_fun = lambda num_cells: 50/(num_cells +1)
     options = DoorHandlerOptions(reduce_fun=reduce_fun, expansion_fun=expansion_fun, complete_threshold=40, min_expansion_threshold=20, nearby_threshold=100, nearby_distance=0.3, delete_threshold=10, max_cost=150)
@@ -88,7 +88,7 @@ if __name__ == "__main__":
 
         if (len(door_handler.door_grids)>0):
             door_grid_0 = door_handler.door_grids[0]
-            door_0_points = door_grid_0.getGridPositions()
+            door_0_points = door_grid_0.occupancy_grid.getGridPositions()
             cloud_0_points = []
             for tp in door_0_points:
                 cloud_0_points.append([tp.x, tp.y, 0, tp.z]) #Cost is in z value

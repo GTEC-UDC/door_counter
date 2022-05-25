@@ -1,4 +1,4 @@
-from door_grid import DoorGridHandler, DoorGridSize, DoorHandlerOptions, TargetPoint
+from grid_occupancy import DoorGridHandler, DoorGridSize, DoorHandlerOptions, TargetPoint
 import threading
 
 
