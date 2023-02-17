@@ -11,7 +11,7 @@ from std_msgs.msg import ColorRGBA, Float32
 from jsk_rviz_plugins.msg import OverlayText
 import json
 
-from grid_occupancy import  OccupancyGrid, TargetPoint, GridSize, TimeOccupancyHandler, TimeOccupancyHandlerOptions, ZoneOfInterest
+from grid_occupancy import  OccupancyGrid, TargetPoint, GridSize, TimeOccupancyHandler, TimeOccupancyHandlerOptions, ZoneOfInterest, SitDownHandler, SitDownHandlerOptions
 
 if __name__ == "__main__":
 
@@ -21,14 +21,17 @@ if __name__ == "__main__":
     grid_width = float(rospy.get_param('~grid_width'))
     grid_height = float(rospy.get_param('~grid_height'))
     zones_of_interest = rospy.get_param('~zones_of_interest')
+    radar_id = rospy.get_param('~radar_id')
+    ref_topic = rospy.get_param('~publish_time_occupancy_ref_topic')
+    time_occupancy_topic = rospy.get_param('~publish_time_occupancy_topic')
 
 
     grid_size = GridSize(width_meters=grid_width, height_meters=grid_height)
-    reduce_fun = lambda time_elapsed: time_elapsed * 10
+    reduce_fun = lambda time_elapsed: time_elapsed * 20
     expansion_fun = lambda num_cells: 50/(num_cells +1)
     options = TimeOccupancyHandlerOptions(reduce_fun=reduce_fun, expansion_fun=expansion_fun, 
     min_expansion_threshold=20, delete_threshold=10, max_cost=150, 
-    occupancy_cost_threshold=1300, occupancy_time=2, deoccupancy_time=5, max_occupancy_time=5)
+    occupancy_cost_threshold=200, occupancy_time=1, deoccupancy_time=1, max_occupancy_time=3)
     time_occupancy_handler = TimeOccupancyHandler(options=options, grid_size=grid_size)
 
     zones = json.loads(str(zones_of_interest))
@@ -38,6 +41,9 @@ if __name__ == "__main__":
     for zone in zones_list:
         time_occupancy_handler.addOccupancyZone(ZoneOfInterest(zone['x'], zone['y'], zone['width'], zone['height'], zone['id']))    
 
+
+    sit_down_options = SitDownHandlerOptions(1.5, 0.12)
+    sit_down_handler = SitDownHandler(sit_down_options)
 
     #Points of each zone (to show in rviz)
     example_occupancy_grid = OccupancyGrid(grid_size.width, grid_size.height)
@@ -63,26 +69,43 @@ if __name__ == "__main__":
         PointField('z', 8, PointField.FLOAT32, 1),
         PointField('cost', 12, PointField.FLOAT32, 1 ),]
 
-    pub_ref_grid = rospy.Publisher('/gtec/time_occupancy/ref_grid', PointCloud2, queue_size=100)
+    pub_ref_grid = rospy.Publisher(ref_topic, PointCloud2, queue_size=100)
     pub_overlay_text = rospy.Publisher('/gtec/time_occupancy/text', OverlayText, queue_size=100)
 
     tf_buffer = tf2_ros.Buffer(rospy.Duration(3.0)) #tf buffer length
     tf_listener = tf2_ros.TransformListener(tf_buffer)
-    transform = tf_buffer.lookup_transform("grid",
-                                   "map", #source frame
-                                   rospy.Time(0), #get the tf at first available time
-                                   rospy.Duration(1.0))
+
+    
+    # transform_odom_to_map = tf_buffer.lookup_transform("odom",
+    #                             radar_id, #source frame
+    #                             rospy.Time(0), #get the tf at first available time
+    #                             rospy.Duration(1.0))
   
     def getTransformedPoint(point_msg, id):
-        tf_pos = tf2_geometry_msgs.do_transform_point(point_msg, transform)
+        transform_map_to_grid = tf_buffer.lookup_transform("grid",
+                                "map", #source frame
+                                rospy.Time(0), #get the tf at first available time
+                                rospy.Duration(1.0))
+
+        transform_radar_to_odom = tf_buffer.lookup_transform("odom",
+                                radar_id, #source frame
+                                rospy.Time(0), #get the tf at first available time
+                                rospy.Duration(1.0))
+        tf_pos = tf2_geometry_msgs.do_transform_point(point_msg, transform_radar_to_odom)
+        #tf_pos = tf2_geometry_msgs.do_transform_point(tf_pos, transform_odom_to_map)
+        tf_pos = tf2_geometry_msgs.do_transform_point(tf_pos, transform_map_to_grid)
         return TargetPoint(tf_pos.point.x, tf_pos.point.y, tf_pos.point.z, 0, id)
 
     pubs_grid = {}
     for n in range(8):
-        a_pub = rospy.Publisher('/gtec/time_ocuppancy/'+str(n), PointCloud2, queue_size=100)
+        a_pub = rospy.Publisher(time_occupancy_topic+'/'+str(n), PointCloud2, queue_size=100)
         pubs_grid[n] = a_pub
         pos_handler = lambda n: lambda pos: time_occupancy_handler.addPosition(getTransformedPoint(pos,n))
+        sit_down_pos_handler = lambda n: lambda pos: sit_down_handler.addPosition(getTransformedPoint(pos,n))
         rospy.Subscriber(str(target_positions_topic)+'/'+str(n), PointStamped, pos_handler(n))  
+        rospy.Subscriber(str(target_positions_topic)+'/'+str(n), PointStamped, sit_down_pos_handler(n))  
+
+
 
     print("=========== GTEC Occupancy Node ============")
 
@@ -109,24 +132,35 @@ if __name__ == "__main__":
             grid_points = oc_grid.getGridPositions()
             cloud_points_grid = []
             for tp in grid_points:
-                cloud_points_grid.append([tp.x, tp.y, 0, tp.z]) #Cost is in z value
+                if tp.z>0: #TODO: THIS ONLY TO HIDE EMPTY GRID CELLS IN RVIZ
+                    cloud_points_grid.append([tp.x, tp.y, 0, tp.z]) #Cost is in z value
             header_point_cloud.stamp = rospy.Time.now()
             point_cloud_grid = pc2.create_cloud(header_point_cloud, fields_point_cloud, cloud_points_grid)
             pubs_grid[oc_grid_id].publish(point_cloud_grid)
             
         list_targets_in_zones = time_occupancy_handler.loop()
+        sit_down_state = sit_down_handler.loop()
 
         text = ''
         text_by_zone = {}
         for zone in example_occupancy_grid.zones_of_interest.values():
             text_by_zone[zone.id] = f'Zone {zone.id}: [ '
 
-        for (zone_id, target_id) in list_targets_in_zones:
-            text_by_zone[zone.id] = text_by_zone[zone.id] + f'{target_id} '
+        for element in list_targets_in_zones:
+            (zone_id, target_id) = element
+            #text_by_zone[zone_id] = text_by_zone[zone_id] + f'{target_id} '
+            text_by_zone[zone_id] = text_by_zone[zone_id] + 'X '
+
 
         for zone in example_occupancy_grid.zones_of_interest.values():
             text_by_zone[zone.id] = text_by_zone[zone.id] + ']\n'
             text = text + text_by_zone[zone.id]
+
+        # for target_id in sit_down_state.keys():
+        #     if sit_down_state[target_id]:
+        #         text = text + str(target_id) + '-> Sitting '
+        #     else:
+        #         text = text + str(target_id) + '-> Standing'
         
         text_msg.text = text
         pub_overlay_text.publish(text_msg)

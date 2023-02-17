@@ -1,14 +1,14 @@
 <launch>
 
-    <arg default="isk_0" name="radar_id"></arg>
+    <arg default="fuse" name="radar_id"></arg>
     <arg default="/gtec/mmwave/$(arg radar_id)/target" name="target_positions_topic"></arg>
     <arg default="/gtec/time_occupancy/$(arg radar_id)/ref_grid" name="publish_time_occupancy_ref_topic"></arg>
     <arg default="/gtec/time_occupancy/$(arg radar_id)" name="publish_time_occupancy_topic"></arg>
   
-    <arg default="2.0" name="grid_width"></arg>
-    <arg default="3.0" name="grid_height"></arg>
+    <arg default="12" name="grid_width"></arg>
+    <arg default="6" name="grid_height"></arg>
 
-    <arg default="-1" name="grid_zero_x"></arg>
+    <arg default="0" name="grid_zero_x"></arg>
     <arg default="0" name="grid_zero_y"></arg>
     <arg default="0" name="grid_rotation"></arg>
 

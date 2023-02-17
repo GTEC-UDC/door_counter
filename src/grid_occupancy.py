@@ -94,6 +94,7 @@ class OccupancyGrid():
     def getCostAroundPosition(self, x:float, y:float, width:float, height:float) -> float:
         '''Gets the current cost around some position (x,y)'''
         row_index, col_index, num_rows, num_cols = self.getCellGroup(x,y,width=width, height=height)
+        print(f'Cost Around: {row_index}, {col_index}, {num_rows}, {num_cols}')
         return self.getCostCellGroup(row_index, col_index, num_rows=num_rows, num_cols=num_cols)
 
     def getCostOfZone(self, zone_id:string) -> float :
@@ -354,7 +355,9 @@ class TimeOccupancyHandler:
 
     def reduceCost(self, elapsed_in_seconds:float)->None:
         cost_to_reduce = self.options.reduce_fun(elapsed_in_seconds)
-        for oc_grid in self.occupancy_grids.values():
+        for oc_grid_id in self.occupancy_grids.keys():
+            oc_grid = self.occupancy_grids[oc_grid_id]
+            print(f'Reduce grid Target: {oc_grid_id}  Cost: {cost_to_reduce}')
             oc_grid.reduceCost(cost_to_reduce)
 
     def newDetection(self, pos: TargetPoint) -> None:
@@ -409,7 +412,7 @@ class TimeOccupancyHandler:
             oc_grid = self.occupancy_grids[oc_grid_id]
             for zone in oc_grid.zones_of_interest.values():
                 zone_cost = oc_grid.getCostOfZone(zone.id)
-                print(f'Zone {zone.id} Cost: {zone_cost}')
+                print(f'Zone {zone.id} Cost: {zone_cost} Target Grid: {oc_grid_id}')
                 if zone_cost> self.options.occupancy_cost_threshold:
                     if not zone.id in zones_with_targets:
                         zones_with_targets[zone.id] = []
@@ -464,7 +467,76 @@ class TimeOccupancyHandler:
         return occupied_zones
 
 
+class SitDownHandlerOptions():
+    def __init__(self, change_threshold_seconds:float, change_threshold_z_variation:float) -> None:
+        self.change_threshold_seconds = change_threshold_seconds
+        self.change_threshold_z_variation = change_threshold_z_variation
+
+class SitDownGrid():
+    def __init__(self) -> None:
+        self.current_max_z = 0
+        self.is_sit = False
+        self.time_to_change = 0
+
+    def newDetection(self, z:float, change_threshold_z_variation:float, change_threshold_seconds:float, time_elapsed:float) -> None:
+        if (z>self.current_max_z):
+            self.current_max_z = z
+
+        if (self.is_sit):
+            if (z>=self.current_max_z-self.current_max_z*change_threshold_z_variation):
+                #We were seated and the new Z is above the stand up threshold
+                self.time_to_change = self.time_to_change + time_elapsed
+            else:
+                self.time_to_change=0
+        else:
+            if (z<=self.current_max_z-self.current_max_z*change_threshold_z_variation):
+                #We stood and the new Z is below the sit down threshold
+                self.time_to_change = self.time_to_change + time_elapsed
+            else:
+                self.time_to_change=0
+
+        print(f'z: {z} max_z:{self.current_max_z} Time to change: {self.time_to_change}')
+
+        if (self.time_to_change>=change_threshold_seconds):
+            self.is_sit = not self.is_sit
+            self.time_to_change = 0
+
+class SitDownHandler():
+    def __init__(self, options: SitDownHandlerOptions) -> None:
+        self.options = options
+        self.last_detection_time_ms = time.time_ns()/1000
+        self.positions_stack = {}
+        self.sit_down_grids = {}
+    
+    def addPosition(self, pos: TargetPoint)-> None:
+        self.positions_stack[pos.id] = pos
+    
+    def newDetection(self, pos: TargetPoint, time_elapsed:float) -> None:
+        if (not pos.id in self.sit_down_grids):
+            #We create a new sit down grid for the new target id
+            new_sd_grid = SitDownGrid()
+            self.sit_down_grids[pos.id] = new_sd_grid
+        sd_grid = self.sit_down_grids[pos.id]
+        sd_grid.newDetection(pos.z,change_threshold_z_variation=self.options.change_threshold_z_variation, 
+        change_threshold_seconds=self.options.change_threshold_seconds,time_elapsed=time_elapsed )
+ 
+    def loop(self) -> Dict:
+
+        current_time_ms = time.time_ns()/1000
+        elapsed_in_seconds = float(current_time_ms - self.last_detection_time_ms)/1000000
+        self.last_detection_time_ms = current_time_ms
+
+        #We process the stacked positions
+        for new_pos in self.positions_stack.values():
+            self.newDetection(new_pos, elapsed_in_seconds)
+
+        #Check state
+        is_sit_state = {}
+        for id in self.sit_down_grids.keys():
+            sd_grid = self.sit_down_grids[id]
+            is_sit_state[id] = sd_grid.is_sit
 
 
+        print(f'Seat state {is_sit_state}')
 
-
+        return is_sit_state
