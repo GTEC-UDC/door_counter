@@ -10,18 +10,22 @@ import time
 
 
 class GridSize():
-    def __init__(self, width_meters: float, height_meters: float) -> None:
+    """Class that represents the size of a grid in meters and the size of the cells in meters"""
+    def __init__(self, width_meters: float, height_meters: float, cell_size: float) -> None:
         self.width = width_meters
         self.height = height_meters
+        self.cell_size = cell_size
 
 class DoorGridSize():
     def __init__(self, grid_size:GridSize, low_zone_height: float, high_zone_height: float) -> None:
+        self.cell_size = grid_size.cell_size
         self.width = grid_size.width
         self.height = grid_size.height
         self.low_zone_height = low_zone_height
         self.high_zone_height = high_zone_height
 
 class ZoneOfInterest():
+    """Class that represents a zone of interest in the grid"""
     def __init__(self, x:float, y:float, width:float, height:float, id:string) -> None:
         self.x = x
         self.y = y
@@ -39,14 +43,13 @@ class ZoneOfInterest():
 
 
 class OccupancyGrid():
-    CELL_SIZE = 0.2
-
-    def __init__(self, width_meters: float, height_meters: float) -> None:
-        self.width = width_meters
-        self.height = height_meters
+    def __init__(self, grid_size:GridSize) -> None:
+        self.cell_size = grid_size.cell_size
+        self.width = grid_size.width
+        self.height = grid_size.height
         self.zones_of_interest = {}
-        self.num_cols = int(self.width/self.CELL_SIZE)
-        self.num_rows = int(self.height/self.CELL_SIZE)
+        self.num_cols = int(self.width/self.cell_size)
+        self.num_rows = int(self.height/self.cell_size)
         self.grid = np.zeros((self.num_rows, self.num_cols))
 
     def addZoneOfInterest(self, zone:ZoneOfInterest) -> None:
@@ -54,8 +57,8 @@ class OccupancyGrid():
 
     def getGridIndexes(self, x:float, y:float) -> Tuple[float, float]:
         '''Returns the indexes of the cell corresponding to position (x,y).'''
-        row_index = math.ceil(y/self.CELL_SIZE)
-        col_index = math.ceil(x/self.CELL_SIZE)
+        row_index = math.ceil(y/self.cell_size)
+        col_index = math.ceil(x/self.cell_size)
 
         if (row_index>= self.num_rows):
             row_index = self.num_rows-1
@@ -87,8 +90,8 @@ class OccupancyGrid():
 
     def getCellGroup(self, x:float, y:float, width:float, height:float) -> Tuple[int, int, int, int]:
         row_index,col_index = self.getGridIndexes(x, y)
-        num_rows = math.ceil(height/self.CELL_SIZE)
-        num_cols = math.ceil(width/self.CELL_SIZE)
+        num_rows = math.ceil(height/self.cell_size)
+        num_cols = math.ceil(width/self.cell_size)
         return (row_index, col_index, num_rows, num_cols)
 
     def getCostAroundPosition(self, x:float, y:float, width:float, height:float) -> float:
@@ -159,7 +162,7 @@ class OccupancyGrid():
         points = []
         for row in range(self.num_rows):
             for col in range(self.num_cols):
-                points.append(TargetPoint(col*self.CELL_SIZE, row*self.CELL_SIZE, self.grid[row,col], 0, 0))
+                points.append(TargetPoint(col*self.cell_size, row*self.cell_size, self.grid[row,col], 0, 0))
         return points
 
 
@@ -172,18 +175,17 @@ class OccupancyGrid():
             start_row = int(row_index - num_rows/2)
             for row in range(num_rows):
                 for col in range(num_cols):
-                    points.append(TargetPoint((start_col + col)*self.CELL_SIZE, (start_row + row)*self.CELL_SIZE, self.grid[start_row + row,start_col + col], 0, 0))
+                    points.append(TargetPoint((start_col + col)*self.cell_size, (start_row + row)*self.cell_size, self.grid[start_row + row,start_col + col], 0, 0))
         return points
 
 
 class DoorGrid():
-    CELL_SIZE = 0.2
 
-    def __init__(self, size: DoorGridSize) -> None:
-        self.occupancy_grid = OccupancyGrid(size.width, size.height)
+    def __init__(self, door_grid_size: DoorGridSize) -> None:
+        self.occupancy_grid = OccupancyGrid(door_grid_size.width, door_grid_size.height, door_grid_size.cell_size)
 
-        self.low_zoi = ZoneOfInterest(size.width/2, size.low_zone_height/2, size.width, size.low_zone_height,'low')
-        self.high_zoi = ZoneOfInterest(size.width/2, size.height - size.high_zone_height/2, size.width, size.high_zone_height,'high')
+        self.low_zoi = ZoneOfInterest(door_grid_size.width/2, door_grid_size.low_zone_height/2, door_grid_size.width, door_grid_size.low_zone_height,'low')
+        self.high_zoi = ZoneOfInterest(door_grid_size.width/2, door_grid_size.height - door_grid_size.high_zone_height/2, door_grid_size.width, door_grid_size.high_zone_height,'high')
 
         self.occupancy_grid.addZoneOfInterest(self.low_zoi)
         self.occupancy_grid.addZoneOfInterest(self.high_zoi)
@@ -340,6 +342,7 @@ class TimeOccupancyHandlerOptions():
         self.max_occupancy_time = max_occupancy_time
 
 class TimeOccupancyHandler:
+    """ This class is in charge of handling the occupancy grids of the zones of interest and the transitions between them. It receives the detections and updates the occupancy grids. It also checks the transitions between zones and the occupancy time of the zones. """
     def __init__(self, options: TimeOccupancyHandlerOptions, grid_size: GridSize) -> None:
         self.options = options
         self.grid_size = grid_size
