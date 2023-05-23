@@ -11,28 +11,34 @@ from std_msgs.msg import ColorRGBA, Float32
 from jsk_rviz_plugins.msg import OverlayText
 
 from grid_occupancy import DoorGridHandler, DoorGridSize, DoorHandlerOptions, TargetPoint, DoorGrid, GridSize
+from gtec_msgs.msg import RadarFusedPointStamped, DoorCounterEvent
+
 
 if __name__ == "__main__":
 
     rospy.init_node('DoorNode', anonymous=True)
     rate = rospy.Rate(5)  # hz
+    door_id = rospy.get_param('~door_id')
     target_positions_topic = rospy.get_param('~target_positions_topic')
+    publish_door_counter_topic = rospy.get_param('~publish_door_counter_topic')
+    cell_size = float(rospy.get_param('~cell_size'))
     grid_width = float(rospy.get_param('~grid_width'))
     grid_height = float(rospy.get_param('~grid_height'))
     grid_low_zone_height = float(rospy.get_param('~grid_low_zone_height'))
     grid_high_zone_height = float(rospy.get_param('~grid_high_zone_height'))
 
-    grid_size = DoorGridSize(grid_size=GridSize(width_meters=grid_width, height_meters=grid_height), low_zone_height=grid_low_zone_height, high_zone_height=grid_high_zone_height)
+    grid_size = GridSize(width_meters=grid_width, height_meters=grid_height, cell_size=cell_size)
+    door_grid_size = DoorGridSize(grid_size=grid_size, low_zone_height=grid_low_zone_height, high_zone_height=grid_high_zone_height)
     reduce_fun = lambda time_elapsed: time_elapsed * 10
     expansion_fun = lambda num_cells: 50/(num_cells +1)
     options = DoorHandlerOptions(reduce_fun=reduce_fun, expansion_fun=expansion_fun, complete_threshold=40, min_expansion_threshold=20, nearby_threshold=100, nearby_distance=0.3, delete_threshold=10, max_cost=150)
     
-    door_handler = DoorGridHandler(options=options, grid_size=grid_size)
+    door_handler = DoorGridHandler(options=options, door_grid_size=door_grid_size)
     
 
 
     #Reference grid to plot in rviz
-    ref_grid = DoorGrid(grid_size)
+    ref_grid = DoorGrid(door_grid_size=door_grid_size)
     #tp_points = ref_grid.getGridPositions()
     high_point = ref_grid.getGridPositionsHighzone()
     low_points = ref_grid.getGridPositionsLowzone()
@@ -53,9 +59,11 @@ if __name__ == "__main__":
         PointField('cost', 12, PointField.FLOAT32, 1 ),]
 
     pub_ref_grid = rospy.Publisher('/gtec/door/ref_grid', PointCloud2, queue_size=100)
-    pub_grid_0 = rospy.Publisher('/gtec/door/0', PointCloud2, queue_size=100)
+    pub_grid_0 = rospy.Publisher('/gtec/door/'+ str(door_id), PointCloud2, queue_size=100)
 
     pub_overlay_text = rospy.Publisher('/gtec/door/text', OverlayText, queue_size=100)
+
+    pub_door_counter = rospy.Publisher(publish_door_counter_topic, DoorCounterEvent, queue_size=100)
 
 
     tf_buffer = tf2_ros.Buffer(rospy.Duration(3.0)) #tf buffer length
@@ -66,14 +74,22 @@ if __name__ == "__main__":
                                    rospy.Duration(1.0))
 
 
+    # def getTransformedPoint(point_msg, id):
+    #     tf_pos = tf2_geometry_msgs.do_transform_point(point_msg, transform)
+    #     return TargetPoint(tf_pos.point.x, tf_pos.point.y, tf_pos.point.z, 0, id)
+
+
+    # for n in range(8):
+    #     pos_handler = lambda pos: door_handler.newDetection(getTransformedPoint(pos,n))
+    #     rospy.Subscriber(str(target_positions_topic)+'/'+str(n), PointStamped, pos_handler)  
+
     def getTransformedPoint(point_msg, id):
         tf_pos = tf2_geometry_msgs.do_transform_point(point_msg, transform)
         return TargetPoint(tf_pos.point.x, tf_pos.point.y, tf_pos.point.z, 0, id)
 
 
-    for n in range(8):
-        pos_handler = lambda pos: door_handler.newDetection(getTransformedPoint(pos,n))
-        rospy.Subscriber(str(target_positions_topic)+'/'+str(n), PointStamped, pos_handler)  
+    pos_handler = lambda pos: door_handler.newDetection(getTransformedPoint(pos,pos.targetId))
+    rospy.Subscriber(str(target_positions_topic), RadarFusedPointStamped, pos_handler) 
 
 
     total_low_to_high = 0
@@ -102,6 +118,12 @@ if __name__ == "__main__":
 
         if (low_to_high != 0 or high_to_low !=0):
             print(f'Low_to_high: {low_to_high} High_to_low: {high_to_low}')
+            door_counter_event = DoorCounterEvent()
+            door_counter_event.header = header_point_cloud
+            door_counter_event.lth = low_to_high
+            door_counter_event.htl = high_to_low
+            pub_door_counter.publish(door_counter_event)
+
 
         
         text_msg = OverlayText()

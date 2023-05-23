@@ -455,12 +455,13 @@ class TimeOccupancyHandler:
         occupied_zones = []
 
         for zone_id in self.occupancy_zones_state.keys():
+            occupied_zones[zone_id] = []
             zone_state = self.occupancy_zones_state[zone_id]
             for target_id in zone_state.keys():
                 target_time_in_zone = zone_state[target_id]
                 if (target_time_in_zone>=self.options.occupancy_time):
                     #Has been in the zone for a long time
-                    occupied_zones.append((zone_id, target_id))
+                    occupied_zones[zone_id].append((target_id, target_time_in_zone))
 
         # We delete the empty grids if there are some
         self.deleteEmptyGrids()

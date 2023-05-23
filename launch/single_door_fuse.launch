@@ -1,6 +1,10 @@
 <launch>
 
-    <arg default="/gtec/mmwave/target" name="target_positions_topic"></arg>
+
+    <arg default="0" name="door_id"></arg>
+
+    <arg default="/gtec/mmwave/fuse/target" name="target_positions_topic"></arg>
+    <arg default="/gtec/door/$(arg door_id)" name="publish_door_counter_topic"></arg>
 
     <arg default="0.2" name="cell_size"></arg>
     <arg default="2.0" name="grid_width"></arg>
@@ -11,15 +15,15 @@
     <arg default="1" name="grid_zero_y"></arg>
     <arg default="0" name="grid_rotation"></arg>
 
-
-
-    <node name="DoorNode" output="screen" pkg="gtec_door_counter" type="door_node.py">
+    <node name="DoorNode_$(arg door_id)" output="screen" pkg="gtec_door_counter" type="door_node.py">
         <param name="target_positions_topic" value="$(arg target_positions_topic)"></param>
+        <param name="publish_door_counter_topic" value="$(arg publish_door_counter_topic)"></param>
         <param name="cell_size" value="$(arg cell_size)"></param>
         <param name="grid_width" value="$(arg grid_width)"></param>
         <param name="grid_height" value="$(arg grid_height)"></param>
         <param name="grid_low_zone_height" value="$(arg grid_low_zone_height)"></param>
         <param name="grid_high_zone_height" value="$(arg grid_high_zone_height)"></param>
+        <param name="door_id" value="$(arg door_id)"></param>
     </node>
 
         <node pkg="tf" 

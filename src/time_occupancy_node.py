@@ -12,6 +12,7 @@ from jsk_rviz_plugins.msg import OverlayText
 import json
 
 from grid_occupancy import  OccupancyGrid, TargetPoint, GridSize, TimeOccupancyHandler, TimeOccupancyHandlerOptions, ZoneOfInterest, SitDownHandler, SitDownHandlerOptions
+from gtec_msgs.msg import RadarFusedPointStamped, ZoneOccupancy
 
 if __name__ == "__main__":
 
@@ -96,15 +97,31 @@ if __name__ == "__main__":
         tf_pos = tf2_geometry_msgs.do_transform_point(tf_pos, transform_map_to_grid)
         return TargetPoint(tf_pos.point.x, tf_pos.point.y, tf_pos.point.z, 0, id)
 
-    pubs_grid = {}
-    for n in range(8):
-        a_pub = rospy.Publisher(time_occupancy_topic+'/'+str(n), PointCloud2, queue_size=100)
-        pubs_grid[n] = a_pub
-        pos_handler = lambda n: lambda pos: time_occupancy_handler.addPosition(getTransformedPoint(pos,n))
-        sit_down_pos_handler = lambda n: lambda pos: sit_down_handler.addPosition(getTransformedPoint(pos,n))
-        rospy.Subscriber(str(target_positions_topic)+'/'+str(n), PointStamped, pos_handler(n))  
-        rospy.Subscriber(str(target_positions_topic)+'/'+str(n), PointStamped, sit_down_pos_handler(n))  
+    # a_pub = rospy.Publisher(time_occupancy_topic+'/'+str(n), PointCloud2, queue_size=100)
+    # pubs_grid[n] = a_pub
 
+    pos_handler = lambda pos: time_occupancy_handler.addPosition(getTransformedPoint(pos,pos.targetId))
+    sit_down_pos_handler = lambda pos: sit_down_handler.addPosition(getTransformedPoint(pos,pos.targetId))
+    rospy.Subscriber(str(target_positions_topic), RadarFusedPointStamped, pos_handler)  
+    #rospy.Subscriber(str(target_positions_topic), RadarFusedPointStamped, sit_down_pos_handler)  
+
+    # pubs_grid = {}
+    # for n in range(8):
+    #     a_pub = rospy.Publisher(time_occupancy_topic+'/'+str(n), PointCloud2, queue_size=100)
+    #     pubs_grid[n] = a_pub
+    #     pos_handler = lambda n: lambda pos: time_occupancy_handler.addPosition(getTransformedPoint(pos,n))
+    #     sit_down_pos_handler = lambda n: lambda pos: sit_down_handler.addPosition(getTransformedPoint(pos,n))
+    #     rospy.Subscriber(str(target_positions_topic)+'/'+str(n), PointStamped, pos_handler(n))  
+    #     rospy.Subscriber(str(target_positions_topic)+'/'+str(n), PointStamped, sit_down_pos_handler(n))  
+
+    # pubs_grid = {}
+    # for n in range(8):
+    #     a_pub = rospy.Publisher(time_occupancy_topic+'/'+str(n), PointCloud2, queue_size=100)
+    #     pubs_grid[n] = a_pub
+    #     pos_handler = lambda n: lambda pos: time_occupancy_handler.addPosition(getTransformedPoint(pos,n))
+    #     sit_down_pos_handler = lambda n: lambda pos: sit_down_handler.addPosition(getTransformedPoint(pos,n))
+    #     rospy.Subscriber(str(target_positions_topic)+'/'+str(n), PointStamped, pos_handler(n))  
+    #     rospy.Subscriber(str(target_positions_topic)+'/'+str(n), PointStamped, sit_down_pos_handler(n))  
 
 
     print("=========== GTEC Occupancy Node ============")
@@ -112,49 +129,68 @@ if __name__ == "__main__":
     text_msg = OverlayText()
     text_msg.width = 400
     text_msg.height = 600
-    #text.height = 600
     text_msg.left = 10
     text_msg.top = 10
+    #text.height = 600
     text_msg.text_size = 18
     text_msg.line_width = 2
     text_msg.font = "DejaVu Sans Mono"
     text_msg.fg_color = ColorRGBA(25 / 255.0, 1.0, 240.0 / 255.0, 1.0)
     text_msg.bg_color = ColorRGBA(0.0, 0.0, 0.0, 0.2)
 
+    zone_occupancy_publisher = rospy.Publisher(time_occupancy_topic, ZoneOccupancy, queue_size=100)
 
     while not rospy.is_shutdown():
         header_point_cloud.stamp = rospy.Time.now()
         point_cloud_grid = pc2.create_cloud(header_point_cloud, fields_point_cloud, cloud_points)
         pub_ref_grid.publish(point_cloud_grid)
 
-        for oc_grid_id in time_occupancy_handler.occupancy_grids.keys():
-            oc_grid = time_occupancy_handler.occupancy_grids[oc_grid_id]
-            grid_points = oc_grid.getGridPositions()
-            cloud_points_grid = []
-            for tp in grid_points:
-                if tp.z>0: #TODO: THIS ONLY TO HIDE EMPTY GRID CELLS IN RVIZ
-                    cloud_points_grid.append([tp.x, tp.y, 0, tp.z]) #Cost is in z value
-            header_point_cloud.stamp = rospy.Time.now()
-            point_cloud_grid = pc2.create_cloud(header_point_cloud, fields_point_cloud, cloud_points_grid)
-            pubs_grid[oc_grid_id].publish(point_cloud_grid)
-            
-        list_targets_in_zones = time_occupancy_handler.loop()
+        # for oc_grid_id in time_occupancy_handler.occupancy_grids.keys():
+        #     oc_grid = time_occupancy_handler.occupancy_grids[oc_grid_id]
+        #     grid_points = oc_grid.getGridPositions()
+        #     cloud_points_grid = []
+        #     for tp in grid_points:
+        #         if tp.z>0: #TODO: THIS ONLY TO HIDE EMPTY GRID CELLS IN RVIZ
+        #             cloud_points_grid.append([tp.x, tp.y, 0, tp.z]) #Cost is in z value
+        #     header_point_cloud.stamp = rospy.Time.now()
+        #     point_cloud_grid = pc2.create_cloud(header_point_cloud, fields_point_cloud, cloud_points_grid)
+        #     pubs_grid[oc_grid_id].publish(point_cloud_grid)
+        
+
+        header_zone_occupancy_msg = Header()
+        header_zone_occupancy_msg.frame_id = "grid"
+        header_zone_occupancy_msg.stamp = rospy.Time.now()
+
+        zones_occupancy = time_occupancy_handler.loop()
         sit_down_state = sit_down_handler.loop()
 
         text = ''
         text_by_zone = {}
-        for zone in example_occupancy_grid.zones_of_interest.values():
-            text_by_zone[zone.id] = f'Zone {zone.id}: [ '
 
-        for element in list_targets_in_zones:
-            (zone_id, target_id) = element
-            #text_by_zone[zone_id] = text_by_zone[zone_id] + f'{target_id} '
-            text_by_zone[zone_id] = text_by_zone[zone_id] + 'X '
+        for zone_id in zones_occupancy.keys():
+            text_by_zone[zone_id] = f'Zone {zone_id}: [ '
+
+        for zone_id in zones_occupancy.keys():
+            zone_targets = zones_occupancy[zone_id]
+            count_targets_in_zone = size(zone_targets)
+            targets_in_zone = []
+            for element in zone_targets:
+                (target_id, time_in_zone) = element
+                targets_in_zone.append(num(target_id))
+                #text_by_zone[zone_id] = text_by_zone[zone_id] + f'{target_id} '
+                text_by_zone[zone_id] = text_by_zone[zone_id] + 'X '
+            zone_occupancy_msg = ZoneOccupancy()
+            zone_occupancy_msg.header = header_zone_occupancy_msg
+            zone_occupancy_msg.zoneId = zone_id
+            zone_occupancy_msg.targetIds = targets_in_zone
+            zone_occupancy_msg.count = count_targets_in_zone
+            zone_occupancy_publisher.publish(zone_occupancy_msg)
 
 
-        for zone in example_occupancy_grid.zones_of_interest.values():
-            text_by_zone[zone.id] = text_by_zone[zone.id] + ']\n'
-            text = text + text_by_zone[zone.id]
+
+        for zone_id in zones_occupancy.keys():
+            text_by_zone[zone_id] = text_by_zone[zone_id] + ']\n'
+            text = text + text_by_zone[zone_id]
 
         # for target_id in sit_down_state.keys():
         #     if sit_down_state[target_id]:
