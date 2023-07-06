@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import rospy
 from geometry_msgs.msg import PointStamped, Point
@@ -21,13 +21,14 @@ if __name__ == "__main__":
     target_positions_topic = rospy.get_param('~target_positions_topic')
     grid_width = float(rospy.get_param('~grid_width'))
     grid_height = float(rospy.get_param('~grid_height'))
+    cell_size = float(rospy.get_param('~cell_size'))
     zones_of_interest = rospy.get_param('~zones_of_interest')
     radar_id = rospy.get_param('~radar_id')
     ref_topic = rospy.get_param('~publish_time_occupancy_ref_topic')
     time_occupancy_topic = rospy.get_param('~publish_time_occupancy_topic')
 
 
-    grid_size = GridSize(width_meters=grid_width, height_meters=grid_height)
+    grid_size = GridSize(width_meters=grid_width, height_meters=grid_height, cell_size=cell_size)
     reduce_fun = lambda time_elapsed: time_elapsed * 20
     expansion_fun = lambda num_cells: 50/(num_cells +1)
     options = TimeOccupancyHandlerOptions(reduce_fun=reduce_fun, expansion_fun=expansion_fun, 
@@ -47,7 +48,7 @@ if __name__ == "__main__":
     sit_down_handler = SitDownHandler(sit_down_options)
 
     #Points of each zone (to show in rviz)
-    example_occupancy_grid = OccupancyGrid(grid_size.width, grid_size.height)
+    example_occupancy_grid = OccupancyGrid(grid_size)
 
     for zone in time_occupancy_handler.occupancy_zones.values():
         example_occupancy_grid.addZoneOfInterest(zone)
@@ -172,11 +173,11 @@ if __name__ == "__main__":
 
         for zone_id in zones_occupancy.keys():
             zone_targets = zones_occupancy[zone_id]
-            count_targets_in_zone = size(zone_targets)
+            count_targets_in_zone = len(zone_targets)
             targets_in_zone = []
             for element in zone_targets:
                 (target_id, time_in_zone) = element
-                targets_in_zone.append(num(target_id))
+                targets_in_zone.append(target_id)
                 #text_by_zone[zone_id] = text_by_zone[zone_id] + f'{target_id} '
                 text_by_zone[zone_id] = text_by_zone[zone_id] + 'X '
             zone_occupancy_msg = ZoneOccupancy()

@@ -7,6 +7,7 @@
   
     <arg default="12" name="grid_width"></arg>
     <arg default="6" name="grid_height"></arg>
+    <arg default="0.2" name="cell_size"></arg>
 
     <arg default="0" name="grid_zero_x"></arg>
     <arg default="0" name="grid_zero_y"></arg>
@@ -16,6 +17,7 @@
         <param name="target_positions_topic" value="$(arg target_positions_topic)"></param>
         <param name="grid_width" value="$(arg grid_width)"></param>
         <param name="grid_height" value="$(arg grid_height)"></param>
+        <param name="cell_size" value="$(arg cell_size)"></param>
         <param name="zones_of_interest" textfile="$(find gtec_door_counter)/launch/zones.txt"></param>
         <param name="radar_id" value="$(arg radar_id)"></param>
         <param name="publish_time_occupancy_ref_topic" value="$(arg publish_time_occupancy_ref_topic)"></param>
@@ -26,5 +28,10 @@
         type="static_transform_publisher" 
         name="map_to_grid" 
         args="$(arg grid_zero_x) $(arg grid_zero_y) 0 $(arg grid_rotation) 0 0 map grid 30" />
+
+    <node pkg="tf" 
+        type="static_transform_publisher" 
+        name="odom_to_fuse" 
+        args="0 0 0 0 0 0 odom fuse 30" />
 
 </launch>

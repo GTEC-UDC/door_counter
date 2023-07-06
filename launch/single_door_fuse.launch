@@ -1,18 +1,17 @@
 <launch>
 
-
     <arg default="0" name="door_id"></arg>
 
     <arg default="/gtec/mmwave/fuse/target" name="target_positions_topic"></arg>
     <arg default="/gtec/door/$(arg door_id)" name="publish_door_counter_topic"></arg>
 
     <arg default="0.2" name="cell_size"></arg>
-    <arg default="2.0" name="grid_width"></arg>
-    <arg default="3.0" name="grid_height"></arg>
+    <arg default="3.0" name="grid_width"></arg>
+    <arg default="4.0" name="grid_height"></arg>
     <arg default="1.2" name="grid_low_zone_height"></arg>
     <arg default="1.2" name="grid_high_zone_height"></arg>
-    <arg default="-1" name="grid_zero_x"></arg>
-    <arg default="1" name="grid_zero_y"></arg>
+    <arg default="2.5" name="grid_zero_x"></arg>
+    <arg default="2" name="grid_zero_y"></arg>
     <arg default="0" name="grid_rotation"></arg>
 
     <node name="DoorNode_$(arg door_id)" output="screen" pkg="gtec_door_counter" type="door_node.py">
@@ -26,9 +25,24 @@
         <param name="door_id" value="$(arg door_id)"></param>
     </node>
 
-        <node pkg="tf" 
+    <node pkg="tf" 
         type="static_transform_publisher" 
         name="map_to_grid" 
         args="$(arg grid_zero_x) $(arg grid_zero_y) 0 $(arg grid_rotation) 0 0 map grid 30" />
+    
+    <arg default="localhost" name="broker_address"></arg>
+    <arg default="gtec/door_counting" name="mqtt_topic"></arg>  
+    <arg default="gtec" name="mqtt_username"></arg>
+    <arg name="mqtt_password"></arg>        
+        
+        
+    <node name="DoorCounterToMqtt_$(arg door_id)" output="screen" pkg="gtec_door_counter" type="door_counter_to_mqtt.py">
+        <param name="publish_door_counter_topic" value="$(arg publish_door_counter_topic)"></param>
+        <param name="broker_address" value="$(arg broker_address)"></param>
+        <param name="mqtt_topic" value="$(arg mqtt_topic)"></param>
+        <param name="mqtt_username" value="$(arg mqtt_username)"></param>
+        <param name="mqtt_password" value="$(arg mqtt_password)"></param>
+    </node>
+     
 
 </launch>

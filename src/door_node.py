@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import rospy
 from geometry_msgs.msg import PointStamped, Point
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     expansion_fun = lambda num_cells: 50/(num_cells +1)
     options = DoorHandlerOptions(reduce_fun=reduce_fun, expansion_fun=expansion_fun, complete_threshold=40, min_expansion_threshold=20, nearby_threshold=100, nearby_distance=0.3, delete_threshold=10, max_cost=150)
     
-    door_handler = DoorGridHandler(options=options, door_grid_size=door_grid_size)
+    door_handler = DoorGridHandler(options=options, grid_size=door_grid_size)
     
 
 

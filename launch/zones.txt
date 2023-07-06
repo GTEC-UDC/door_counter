@@ -1,46 +1,25 @@
 {
     "zones": [
         {   
-            "id" : "seat0",
-            "x" : 7.3,
-            "y" : 1,
-            "width" : 0.4,
-            "height"  : 0.4
+            "id" : "puesto_val",
+            "x" : 4.4,
+            "y" : 4.2,
+            "width" : 0.5,
+            "height"  : 0.5
         }, 
         {   
-            "id" : "seat1",
-            "x" : 8.2,
-            "y" : 1,
-            "width" : 0.4,
-            "height"  : 0.4
+            "id" : "puesto_tomas",
+            "x" : 5.5,
+            "y" : 3.7,
+            "width" : 0.5,
+            "height"  : 0.5
         }, 
         {   
-            "id" : "seat2",
-            "x" : 9,
-            "y" : 1,
-            "width" : 0.4,
-            "height"  : 0.4
-        }, 
-        {   
-            "id" : "seat3",
-            "x" : 7.3,
-            "y" : 2.4,
-            "width" : 0.4,
-            "height"  : 0.4
-        }, 
-        {   
-            "id" : "seat4",
-            "x" : 8.2,
-            "y" : 2.4,
-            "width" : 0.4,
-            "height"  : 0.4
-        }, 
-        {   
-            "id" : "seat5",
-            "x" : 9,
-            "y" : 2.4,
-            "width" : 0.4,
-            "height"  : 0.4
+            "id" : "pizarra",
+            "x" : 8,
+            "y" : 3.5,
+            "width" : 3,
+            "height"  : 3
         }
     ]
 }

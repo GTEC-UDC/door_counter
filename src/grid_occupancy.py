@@ -182,7 +182,8 @@ class OccupancyGrid():
 class DoorGrid():
 
     def __init__(self, door_grid_size: DoorGridSize) -> None:
-        self.occupancy_grid = OccupancyGrid(door_grid_size.width, door_grid_size.height, door_grid_size.cell_size)
+        grid_size = GridSize(door_grid_size.width, door_grid_size.height, door_grid_size.cell_size)
+        self.occupancy_grid = OccupancyGrid(grid_size)
 
         self.low_zoi = ZoneOfInterest(door_grid_size.width/2, door_grid_size.low_zone_height/2, door_grid_size.width, door_grid_size.low_zone_height,'low')
         self.high_zoi = ZoneOfInterest(door_grid_size.width/2, door_grid_size.height - door_grid_size.high_zone_height/2, door_grid_size.width, door_grid_size.high_zone_height,'high')
@@ -366,7 +367,7 @@ class TimeOccupancyHandler:
     def newDetection(self, pos: TargetPoint) -> None:
         if (not pos.id in self.occupancy_grids):
             #We create a new occupancy grid for the new target id
-            new_oc_grid = OccupancyGrid(self.grid_size.width, self.grid_size.height)
+            new_oc_grid = OccupancyGrid(self.grid_size)
             for zone in self.occupancy_zones.values():
                 new_oc_grid.addZoneOfInterest(zone)
             self.occupancy_grids[pos.id] = new_oc_grid
@@ -452,7 +453,7 @@ class TimeOccupancyHandler:
         self.updateZonesState(elapsed_in_seconds, zones_with_targets_this_frame)
 
         #These are the zones where a target has ben inside for enough time
-        occupied_zones = []
+        occupied_zones = {}
 
         for zone_id in self.occupancy_zones_state.keys():
             occupied_zones[zone_id] = []
