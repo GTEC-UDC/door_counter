@@ -1,11 +1,14 @@
 # README
 
-Set of ROS nodes to monitor the occupancy of people in a room and the crossing of a door.
+Set of ROS nodes to monitor the occupancy of a room with FMCW mmWave radars.
 
-## Door Node
+- **time_occupancy_node**: returns the occupancy in some deffined areas.
+- **zone_occupancy_to_mqtt**: allows the publish of occupancy measurements through MQTT.
+- **zone_ocuppancy_to_file**: save the occupancy measurements to a local file.
 
-This node is responsible for counting people passing through a door. To do so, the node needs to define the passage zone, and within it, two other sub-zones called *high* and *low*, each located at one end of the passage zone. Each time a person passes from the *high* zone to the *low* zone or vice versa, a message is sent. 
+The ```launch``` folder contains some launch files to launch the algorithms with some parameters.
 
+This repository is related with the next paper. Please cite us if this code is useful to you.
 
-
+Barral, V., Dominguez-Bolano, T., Escudero, C. J., & Garcia-Naya, J. A. *An IoT System for Smart Building Combining Multiple mmWave FMCW Radars Applied to People Counting.*
 

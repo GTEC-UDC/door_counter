@@ -11,7 +11,7 @@
     <arg default="1.2" name="grid_low_zone_height"></arg>
     <arg default="1.2" name="grid_high_zone_height"></arg>
     <arg default="2.5" name="grid_zero_x"></arg>
-    <arg default="2" name="grid_zero_y"></arg>
+    <arg default="0" name="grid_zero_y"></arg>
     <arg default="0" name="grid_rotation"></arg>
 
     <node name="DoorNode_$(arg door_id)" output="screen" pkg="gtec_door_counter" type="door_node.py">
@@ -31,7 +31,7 @@
         args="$(arg grid_zero_x) $(arg grid_zero_y) 0 $(arg grid_rotation) 0 0 map grid 30" />
     
     <arg default="localhost" name="broker_address"></arg>
-    <arg default="gtec/door_counting" name="mqtt_topic"></arg>  
+    <arg default="gtec/door_counting/$(arg door_id)" name="mqtt_topic"></arg>  
     <arg default="gtec" name="mqtt_username"></arg>
     <arg name="mqtt_password"></arg>        
         

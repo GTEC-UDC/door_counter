@@ -4,6 +4,7 @@
     <arg default="/gtec/mmwave/$(arg radar_id)/target" name="target_positions_topic"></arg>
     <arg default="/gtec/time_occupancy/$(arg radar_id)/ref_grid" name="publish_time_occupancy_ref_topic"></arg>
     <arg default="/gtec/time_occupancy/$(arg radar_id)" name="publish_time_occupancy_topic"></arg>
+    <arg default="/gtec/door/" name="publish_door_counter_topic"></arg>
   
     <arg default="12" name="grid_width"></arg>
     <arg default="6" name="grid_height"></arg>
@@ -22,6 +23,7 @@
         <param name="radar_id" value="$(arg radar_id)"></param>
         <param name="publish_time_occupancy_ref_topic" value="$(arg publish_time_occupancy_ref_topic)"></param>
         <param name="publish_time_occupancy_topic" value="$(arg publish_time_occupancy_topic)"></param>
+        <param name="publish_door_counter_topic" value="$(arg publish_door_counter_topic)"></param>
     </node>
 
     <node pkg="tf" 
@@ -33,5 +35,34 @@
         type="static_transform_publisher" 
         name="odom_to_fuse" 
         args="0 0 0 0 0 0 odom fuse 30" />
+        
+    <arg default="0" name="door_id"></arg>
+    <arg default="false" name="enable_mqtt"></arg>
+    <arg default="iot.gtec.udc.es" name="broker_address"></arg>
+    <arg default="gtec/zone_occupancy/" name="mqtt_topic"></arg>  
+    <arg default="gtec" name="mqtt_username"></arg>
+    <arg name="mqtt_password" default="empty"></arg>        
+    
+    
+
+   <arg default="/gtec/time_occupancy/fuse" name="publish_zone_ocuppancy_topic"></arg>
+   <node if="$(arg enable_mqtt)" name="ZoneOccupancyToMqtt" output="screen" pkg="gtec_door_counter" type="zone_occupancy_to_mqtt.py">
+        <param name="publish_zone_ocuppancy_topic" value="$(arg publish_zone_ocuppancy_topic)"></param>
+        <param name="broker_address" value="$(arg broker_address)"></param>
+        <param name="mqtt_topic" value="$(arg mqtt_topic)"></param>
+        <param name="mqtt_username" value="$(arg mqtt_username)"></param>
+        <param name="mqtt_password" value="$(arg mqtt_password)"></param>
+    </node> 
+   
+    <arg default="false" name="enable_logfile"></arg>
+    
+
+    <arg name="zone_occupancy_file_name"></arg>  
+    <node if="$(arg enable_logfile)" name="ZoneOccupancyToFile" output="screen" pkg="gtec_door_counter" type="zone_occupancy_to_file.py">
+        <param name="publish_zone_ocuppancy_topic" value="$(arg publish_zone_ocuppancy_topic)"></param>
+        <param name="zone_occupancy_file_name" value="$(arg zone_occupancy_file_name)"></param>
+    </node>
+
+
 
 </launch>

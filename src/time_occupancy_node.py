@@ -11,8 +11,8 @@ from std_msgs.msg import ColorRGBA, Float32
 from jsk_rviz_plugins.msg import OverlayText
 import json
 
-from grid_occupancy import  OccupancyGrid, TargetPoint, GridSize, TimeOccupancyHandler, TimeOccupancyHandlerOptions, ZoneOfInterest, SitDownHandler, SitDownHandlerOptions
-from gtec_msgs.msg import RadarFusedPointStamped, ZoneOccupancy
+from grid_occupancy import  DoorTime, OccupancyGrid, TargetPoint, GridSize, TimeOccupancyHandler, TimeOccupancyHandlerOptions, ZoneOfInterest, SitDownHandler, SitDownHandlerOptions
+from gtec_msgs.msg import RadarFusedPointStamped, ZoneOccupancy, DoorCounterEvent
 
 if __name__ == "__main__":
 
@@ -26,14 +26,15 @@ if __name__ == "__main__":
     radar_id = rospy.get_param('~radar_id')
     ref_topic = rospy.get_param('~publish_time_occupancy_ref_topic')
     time_occupancy_topic = rospy.get_param('~publish_time_occupancy_topic')
+    publish_door_counter_topic = rospy.get_param('~publish_door_counter_topic')
 
 
     grid_size = GridSize(width_meters=grid_width, height_meters=grid_height, cell_size=cell_size)
-    reduce_fun = lambda time_elapsed: time_elapsed * 20
-    expansion_fun = lambda num_cells: 50/(num_cells +1)
+    reduce_fun = lambda time_elapsed: time_elapsed * 220
+    expansion_fun = lambda num_cells: 80/(num_cells +1)
     options = TimeOccupancyHandlerOptions(reduce_fun=reduce_fun, expansion_fun=expansion_fun, 
-    min_expansion_threshold=20, delete_threshold=10, max_cost=150, 
-    occupancy_cost_threshold=200, occupancy_time=1, deoccupancy_time=1, max_occupancy_time=3)
+    min_expansion_threshold=10, delete_threshold=10, max_cost=50, 
+    occupancy_cost_threshold=100, occupancy_time=1, deoccupancy_time=10, max_occupancy_time=15)
     time_occupancy_handler = TimeOccupancyHandler(options=options, grid_size=grid_size)
 
     zones = json.loads(str(zones_of_interest))
@@ -43,7 +44,16 @@ if __name__ == "__main__":
     for zone in zones_list:
         time_occupancy_handler.addOccupancyZone(ZoneOfInterest(zone['x'], zone['y'], zone['width'], zone['height'], zone['id']))    
 
-
+    doors_list = zones['doors']
+    
+    door_time_controllers = []
+    for door in doors_list:
+        door_time = DoorTime(out_zone_id=door['out_zone_id'], in_zone_id=door['in_zone_id'], max_time_to_cross_in_ms=door['time_to_cross_in_ms'])
+        pub_door_counter = rospy.Publisher(publish_door_counter_topic+door['id'], DoorCounterEvent, queue_size=100)
+        door_time_controllers.append((door_time, pub_door_counter))
+        
+        
+        
     sit_down_options = SitDownHandlerOptions(1.5, 0.12)
     sit_down_handler = SitDownHandler(sit_down_options)
 
@@ -142,6 +152,7 @@ if __name__ == "__main__":
     zone_occupancy_publisher = rospy.Publisher(time_occupancy_topic, ZoneOccupancy, queue_size=100)
 
     while not rospy.is_shutdown():
+        #print('Loop Grid')
         header_point_cloud.stamp = rospy.Time.now()
         point_cloud_grid = pc2.create_cloud(header_point_cloud, fields_point_cloud, cloud_points)
         pub_ref_grid.publish(point_cloud_grid)
@@ -157,7 +168,7 @@ if __name__ == "__main__":
         #     point_cloud_grid = pc2.create_cloud(header_point_cloud, fields_point_cloud, cloud_points_grid)
         #     pubs_grid[oc_grid_id].publish(point_cloud_grid)
         
-
+        
         header_zone_occupancy_msg = Header()
         header_zone_occupancy_msg.frame_id = "grid"
         header_zone_occupancy_msg.stamp = rospy.Time.now()
@@ -167,6 +178,18 @@ if __name__ == "__main__":
 
         text = ''
         text_by_zone = {}
+        
+        current_time_ms = float(rospy.get_rostime().to_nsec())/1000000.0
+        
+        for (door_time, pub_door_counter) in door_time_controllers:
+            (just_enter, just_leave) = door_time.loop(current_time_ms, zones_occupancy)
+            if (len(just_enter) > 0 or len(just_leave) > 0):
+                #print(f'just_enter: {just_enter} just_leave: {just_leave}')
+                door_counter_event = DoorCounterEvent()
+                door_counter_event.header = header_zone_occupancy_msg
+                door_counter_event.lth = len(just_enter)
+                door_counter_event.htl = len(just_leave)
+                pub_door_counter.publish(door_counter_event)
 
         for zone_id in zones_occupancy.keys():
             text_by_zone[zone_id] = f'Zone {zone_id}: [ '
@@ -186,6 +209,7 @@ if __name__ == "__main__":
             zone_occupancy_msg.targetIds = targets_in_zone
             zone_occupancy_msg.count = count_targets_in_zone
             zone_occupancy_publisher.publish(zone_occupancy_msg)
+            print(f"{zone_id}: {len(targets_in_zone)}")
 
 
 
@@ -201,5 +225,7 @@ if __name__ == "__main__":
         
         text_msg.text = text
         pub_overlay_text.publish(text_msg)
+        
+        zones_occupancy = {}
 
         rate.sleep()

@@ -1,25 +1,33 @@
 {
     "zones": [
         {   
-            "id" : "puesto_val",
-            "x" : 4.4,
-            "y" : 4.2,
-            "width" : 0.5,
-            "height"  : 0.5
-        }, 
-        {   
-            "id" : "puesto_tomas",
-            "x" : 5.5,
-            "y" : 3.7,
-            "width" : 0.5,
-            "height"  : 0.5
-        }, 
-        {   
-            "id" : "pizarra",
-            "x" : 8,
-            "y" : 3.5,
+            "id" : "entrada_ac",
+            "x" : 4,
+            "y" : 2,
             "width" : 3,
-            "height"  : 3
+            "height"  : 2
+        }, 
+        {   
+            "id" : "salida_ac",
+            "x" : 4,
+            "y" : 5,
+            "width" : 3,
+            "height"  : 2
+        }, 
+        {   
+            "id" : "full_room",
+            "x" : 6,
+            "y" : 3,
+            "width" : 12,
+            "height"  : 6
+        }
+    ],
+    "doors": [
+        {
+            "id": "door_ac",
+            "in_zone_id" : "entrada_ac",
+            "out_zone_id": "salida_ac",
+            "time_to_cross_in_ms": 2500
         }
     ]
 }

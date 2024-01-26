@@ -97,7 +97,7 @@ class OccupancyGrid():
     def getCostAroundPosition(self, x:float, y:float, width:float, height:float) -> float:
         '''Gets the current cost around some position (x,y)'''
         row_index, col_index, num_rows, num_cols = self.getCellGroup(x,y,width=width, height=height)
-        print(f'Cost Around: {row_index}, {col_index}, {num_rows}, {num_cols}')
+        # print(f'Cost Around: {row_index}, {col_index}, {num_rows}, {num_cols}')
         return self.getCostCellGroup(row_index, col_index, num_rows=num_rows, num_cols=num_cols)
 
     def getCostOfZone(self, zone_id:string) -> float :
@@ -109,7 +109,8 @@ class OccupancyGrid():
             return -1
 
     def getCost(self) -> float:
-        return np.sum(self.grid)
+        a_cost = np.sum(self.grid)
+        return a_cost
 
     def reduceCostFun(self, val:float, cost:float) -> float:
         reduced = val -cost
@@ -153,7 +154,8 @@ class OccupancyGrid():
                     if (row_min==0 and col_min==0 and row_max == self.num_rows and row_min == self.num_cols):
                         end = True # If the expansion affected already the whole matrix, we stop
                 else:
-                    print('No cells')
+                    pass
+                    #print('No cells')
             else:
                 end = True
             num_cells = num_cells +1
@@ -178,6 +180,64 @@ class OccupancyGrid():
                     points.append(TargetPoint((start_col + col)*self.cell_size, (start_row + row)*self.cell_size, self.grid[start_row + row,start_col + col], 0, 0))
         return points
 
+class DoorTime():
+    def __init__(self, out_zone_id:string, in_zone_id:string, max_time_to_cross_in_ms:float) -> None:
+        self.out_zone_id = out_zone_id
+        self.in_zone_id = in_zone_id
+        self.max_time_to_cross_in_ms = max_time_to_cross_in_ms
+        
+        self.targets_out = {}
+        self.targets_in = {}
+        
+        self.just_enter = []
+        self.just_leave = []
+        
+    
+    def new_target_in_zone(self, zone_id:string, target_id:string, ts:float) -> None:
+        is_mine = False
+        is_in = True
+        
+        if (zone_id==self.out_zone_id):
+            is_mine = True
+            is_in = False 
+            #print(f'Target_id {target_id} in zone OUT')     
+        elif (zone_id==self.in_zone_id):
+            is_mine = True
+            #print(f'Target_id {target_id} in zone IN')  
+            
+        if is_mine==True:
+            self.process_target(target_id, ts, is_in)
+        
+    def process_target(self, target_id:string, ts:float, is_in:bool) -> None:
+        if (is_in):
+            self.targets_in[target_id] = ts
+            if target_id in self.targets_out:
+                last_ts_out = self.targets_out[target_id]
+                if abs(ts - last_ts_out) <= self.max_time_to_cross_in_ms:
+                    # Was out, now is in
+                    self.just_enter.append(target_id)
+                    self.targets_out.pop(target_id)
+        else:
+            self.targets_out[target_id] = ts
+            if target_id in self.targets_in:
+                last_ts_in = self.targets_in[target_id]
+                if abs(ts - last_ts_in) <= self.max_time_to_cross_in_ms:
+                    # Was in, now is out
+                    self.just_leave.append(target_id)       
+                    self.targets_in.pop(target_id)             
+        
+    def loop(self, ts_ms:float, zones_occupancy)-> None:
+        self.just_enter = []
+        self.just_leave = []
+        
+        for zone_id in zones_occupancy.keys():
+            zone_targets = zones_occupancy[zone_id]
+            for element in zone_targets:
+                (target_id, time_in_zone) = element
+                self.new_target_in_zone(zone_id, target_id, ts_ms)
+                    
+        return (self.just_enter, self.just_leave)
+                     
 
 class DoorGrid():
 
@@ -274,7 +334,7 @@ class DoorGridHandler():
             door_grid = DoorGrid(self.grid_size)
             is_in_zone, low_is_enter = door_grid.is_in_low_or_high_zone(pos.x,pos.y)
             if (is_in_zone):
-                print(f'New grid start low_is_enter: {low_is_enter} In position {pos.x},{pos.y}')
+                #print(f'New grid start low_is_enter: {low_is_enter} In position {pos.x},{pos.y}')
                 door_grid.start(low_is_enter)
                 self.door_grids.append(door_grid)
                 door_grid.occupancy_grid.newDetection(pos.x,pos.y, expansion_fun=self.options.expansion_fun, min_expansion_threshold=self.options.min_expansion_threshold, max_cost=self.options.max_cost)
@@ -298,7 +358,7 @@ class DoorGridHandler():
             #print(f'Enter zone cost {door_grid.getEnterZoneCost()} Exit zone cost {door_grid.getExitZoneCost()}')
             if (door_grid.getEnterZoneCost()>= self.options.complete_threshold and door_grid.getExitZoneCost()>= self.options.complete_threshold):
                 #This grid is complete. We add a new transition to the counter and delete the grid.
-                print('New transition')
+                #print('New transition')
                 if (door_grid.low_is_enter):
                     low_to_high = low_to_high +1
                 else:
@@ -325,7 +385,7 @@ class DoorGridHandler():
         # We delete the empty grids if there are some
         self.deleteEmptyGrids()
 
-        print(f'Active grids {len(self.door_grids)}')
+        #print(f'Active grids {len(self.door_grids)}')
 
         return (low_to_high, high_to_low)
 
@@ -361,10 +421,11 @@ class TimeOccupancyHandler:
         cost_to_reduce = self.options.reduce_fun(elapsed_in_seconds)
         for oc_grid_id in self.occupancy_grids.keys():
             oc_grid = self.occupancy_grids[oc_grid_id]
-            print(f'Reduce grid Target: {oc_grid_id}  Cost: {cost_to_reduce}')
+            #print(f'Reducing cost of grid id: {oc_grid_id}  Amount: {cost_to_reduce}')
             oc_grid.reduceCost(cost_to_reduce)
 
     def newDetection(self, pos: TargetPoint) -> None:
+        #print(f'New detection Target id: {pos.id} Pos: {pos.x, pos.y, pos.z}')
         if (not pos.id in self.occupancy_grids):
             #We create a new occupancy grid for the new target id
             new_oc_grid = OccupancyGrid(self.grid_size)
@@ -406,17 +467,18 @@ class TimeOccupancyHandler:
             else:
                 updated_zones_state[zone_id] = {}
 
-
-        self.occupancy_zones_state = updated_zones_state
+        #print(f'Updated zones state: {updated_zones_state}')
+        self.occupancy_zones_state = updated_zones_state.copy()
 
     
     def getZonesWithTargetsInside(self) -> Dict:
         zones_with_targets = {}
         for oc_grid_id in self.occupancy_grids.keys():
             oc_grid = self.occupancy_grids[oc_grid_id]
+            #print(f'Grid id: {oc_grid_id}')
             for zone in oc_grid.zones_of_interest.values():
                 zone_cost = oc_grid.getCostOfZone(zone.id)
-                print(f'Zone {zone.id} Cost: {zone_cost} Target Grid: {oc_grid_id}')
+                #print(f'Zone {zone.id} Cost: {zone_cost}')
                 if zone_cost> self.options.occupancy_cost_threshold:
                     if not zone.id in zones_with_targets:
                         zones_with_targets[zone.id] = []
@@ -426,10 +488,17 @@ class TimeOccupancyHandler:
     def deleteEmptyGrids(self) -> None:
         active_grids = {}
         for oc_grid_id in self.occupancy_grids.keys():
-                if (self.occupancy_grids[oc_grid_id].getCost()>= self.options.delete_threshold):
+                a_cost = self.occupancy_grids[oc_grid_id].getCost()
+                #print(f'Grid id: {oc_grid_id} Cost:{a_cost}')
+                if (a_cost>= float(self.options.delete_threshold)):
+                    #print('Not deleted')
                     active_grids[oc_grid_id] = self.occupancy_grids[oc_grid_id]
+                else:
+                    pass
+                    #print(f'Deleted grid {oc_grid_id} with cost: {a_cost} and threshold is {self.options.delete_threshold}')
+                    
 
-        self.occupancy_grids = active_grids
+        self.occupancy_grids = active_grids.copy()
 
     def addPosition(self, pos: TargetPoint)-> None:
         self.positions_stack[pos.id] = pos
@@ -439,11 +508,13 @@ class TimeOccupancyHandler:
         current_time_ms = time.time_ns()/1000
         elapsed_in_seconds = float(current_time_ms - self.last_detection_time_ms)/1000000
         self.last_detection_time_ms = current_time_ms
-
+        
         self.reduceCost(elapsed_in_seconds)
-
+        
+        current_positions = self.positions_stack.values()
+        self.positions_stack = {}
         #We process the stacked positions
-        for new_pos in self.positions_stack.values():
+        for new_pos in current_positions:
             self.newDetection(new_pos)
 
         #These are the zone with some target inside during this frame
@@ -467,7 +538,7 @@ class TimeOccupancyHandler:
         # We delete the empty grids if there are some
         self.deleteEmptyGrids()
 
-        print(f'Occupied Zones {occupied_zones}')
+        #print(f'Occupied Zones {occupied_zones}')
 
         return occupied_zones
 
@@ -500,7 +571,7 @@ class SitDownGrid():
             else:
                 self.time_to_change=0
 
-        print(f'z: {z} max_z:{self.current_max_z} Time to change: {self.time_to_change}')
+        #print(f'z: {z} max_z:{self.current_max_z} Time to change: {self.time_to_change}')
 
         if (self.time_to_change>=change_threshold_seconds):
             self.is_sit = not self.is_sit
@@ -542,6 +613,6 @@ class SitDownHandler():
             is_sit_state[id] = sd_grid.is_sit
 
 
-        print(f'Seat state {is_sit_state}')
+        # print(f'Seat state {is_sit_state}')
 
         return is_sit_state
